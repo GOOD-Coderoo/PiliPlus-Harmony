@@ -115,6 +115,18 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
         data.series?.item?.isNotEmpty == true) {
       hasSeasonOrSeries = true;
     }
+    // 合集/系列存在时，作为一级标签插入「投稿」之后
+    if (hasSeasonOrSeries == true &&
+        tab2 != null &&
+        tab2!.any((e) => e.param == 'ugcSeason') != true) {
+      final contributeIdx = tab2!.indexWhere((e) => e.param == 'contribute');
+      final seasonTab = const SpaceTab2(param: 'ugcSeason', title: '合集');
+      if (contributeIdx >= 0) {
+        tab2!.insert(contributeIdx + 1, seasonTab);
+      } else {
+        tab2!.add(seasonTab);
+      }
+    }
     tab2?.retainWhere((item) => MemberTabType.contains(item.param!));
     if (tab2?.isNotEmpty == true) {
       if (data.hasItem != true && tab2!.first.param == 'home') {

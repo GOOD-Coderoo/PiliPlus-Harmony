@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:PiliPlus/models_new/space/space/tab2.dart';
 import 'package:PiliPlus/pages/member/controller.dart';
 import 'package:get/get.dart';
@@ -27,17 +25,22 @@ class MemberContributeCtr extends GetxController
     );
     final items = contribute.items;
     if (items != null && items.isNotEmpty) {
+      // 已有顶级「合集」标签时，投稿内不再出现任何合集相关子标签
+      if (_ctr.hasSeasonOrSeries == true) {
+        items.removeWhere(
+          (e) =>
+              e.param == 'ugcSeason' ||
+              e.param == 'season_video' ||
+              e.param == 'series',
+        );
+      }
       this.items = items;
-      if (contribute.items!.length > 1) {
-        // show if exist
-        if (_ctr.hasSeasonOrSeries == true) {
-          items.add(const SpaceTab2Item(param: 'ugcSeason', title: '全部合集/列表'));
-        }
+      if (items.length > 1) {
         tabs = items.map((item) => Tab(text: item.title)).toList();
         tabController = TabController(
           vsync: this,
           length: items.length,
-          initialIndex: max(0, initialIndex ?? 0),
+          initialIndex: (initialIndex ?? 0).clamp(0, items.length - 1),
         );
       }
     }
