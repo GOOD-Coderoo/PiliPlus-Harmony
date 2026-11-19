@@ -1,0 +1,161 @@
+name: Build
+
+# 全平台构建：Android / Windows / Linux / macOS / iOS
+#
+# 说明：
+# - 本仓库（PiliPlus-Harmony）基于 dev4harmony/PiliPlus 的 ohos 分支，
+#   与上游 bggRGjQaUbCoE/PiliPlus 的构建方式不同：
+#   上游用 lib/scripts/patch.ps1 给 Flutter SDK 打补丁、用 build.ps1 生成
+#   pili_release.json；本分支改用 Dart 端 shim（packages/material_ui）
+#   和 .vscode/build_env.dart 生成 env.json。
+# - 鸿蒙 HAP 由独立的 release.yml 负责，这里只构建传统全平台。
+
+on:
+    workflow_dispatch:
+        inputs:
+            build_android:
+                description: "构建 Android"
+                required: false
+                default: true
+                type: boolean
+            build_win_x64:
+                description: "构建 Windows x64"
+                required: false
+                default: true
+                type: boolean
+            build_linux_x64:
+                description: "构建 Linux x64"
+                required: false
+                default: true
+                type: boolean
+            build_mac:
+                description: "构建 macOS"
+                required: false
+                default: true
+                type: boolean
+            build_ios:
+                description: "构建 iOS"
+                required: false
+                default: false
+                type: boolean
+            tag:
+                description: "发布 tag（留空则只产出 artifact，不发布 Release）"
+                required: false
+                default: ""
+                type: string
+
+    push:
+        tags:
+            - "*"
+
+jobs:
+    android:
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_android == 'true' }}
+        name: Release Android
+        runs-on: ubuntu-latest
+        permissions: write-all
+        steps:
+            - name: 代码迁出
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 构建 Java 环境
+              uses: actions/setup-java@v4
+              with:
+                  distribution: "zulu"
+                  java-version: "17"
+                  cache: "gradle"
+                  cache-dependency-path: |
+                      android/*.gradle*
+                      android/**/gradle-wrapper.properties
+
+            - name: 安装 Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                  channel: stable
+                  flutter-version: "3.44.9"
+                  cache: true
+
+            - name: 生成 env.json
+              run: dart .vscode/build_env.dart "${{ inputs.tag }}"
+
+            - name: 拉取依赖
+              run: flutter pub get
+              env:
+                  GIT_LFS_SKIP_SMUDGE: 1
+
+            - name: 写入签名配置
+              run: |
+                  if [ ! -z "${{ secrets.SIGN_KEYSTORE_BASE64 }}" ]; then
+                    echo "${{ secrets.SIGN_KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+                    echo storeFile='key.jks' >> android/key.properties
+                    echo storePassword='${{ secrets.KEYSTORE_PASSWORD }}' >> android/key.properties
+                    echo keyAlias='${{ secrets.KEY_ALIAS }}' >> android/key.properties
+                    echo keyPassword='${{ secrets.KEY_PASSWORD }}' >> android/key.properties
+                  fi
+
+            - name: 构建 APK
+              run: flutter build apk --release --split-per-abi --dart-define-from-file=.vscode/env.json --no-pub
+
+            - name: 重命名
+              run: |
+                  for file in build/app/outputs/flutter-apk/app-*-release.apk; do
+                    abi=$(echo "$file" | sed -E 's|.*app-(.*)-release\.apk|\1|')
+                    mv "$file" "PiliPlus_android_${abi}.apk"
+                  done
+              shell: bash
+
+            - name: 发布 Release
+              if: ${{ github.event_name == 'push' || inputs.tag != '' }}
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+                  name: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+                  files: PiliPlus_android_*.apk
+
+            - name: 上传 arm64-v8a
+              uses: actions/upload-artifact@v4
+              with:
+                  name: Android_arm64-v8a
+                  path: PiliPlus_android_arm64-v8a.apk
+
+            - name: 上传 armeabi-v7a
+              uses: actions/upload-artifact@v4
+              with:
+                  name: Android_armeabi-v7a
+                  path: PiliPlus_android_armeabi-v7a.apk
+
+            - name: 上传 x86_64
+              uses: actions/upload-artifact@v4
+              with:
+                  name: Android_x86_64
+                  path: PiliPlus_android_x86_64.apk
+
+    win_x64:
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_win_x64 == 'true' }}
+        uses: ./.github/workflows/win_x64.yml
+        permissions: write-all
+        with:
+            tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag || '' }}
+
+    linux_x64:
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_linux_x64 == 'true' }}
+        uses: ./.github/workflows/linux_x64.yml
+        permissions: write-all
+        with:
+            tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag || '' }}
+
+    mac:
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_mac == 'true' }}
+        uses: ./.github/workflows/mac.yml
+        permissions: write-all
+        with:
+            tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag || '' }}
+
+    ios:
+        if: ${{ github.event_name == 'push' || github.event.inputs.build_ios == 'true' }}
+        uses: ./.github/workflows/ios.yml
+        permissions: write-all
+        with:
+            tag: ${{ github.event_name == 'push' && github.ref_name || inputs.tag || '' }}

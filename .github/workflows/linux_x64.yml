@@ -1,0 +1,144 @@
+name: Build for Linux x64
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "tag"
+        required: false
+        default: ""
+        type: string
+  workflow_dispatch:
+
+jobs:
+  build-linux-app:
+    name: Release Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libasound2-dev libmpv-dev elfutils rpm
+        shell: bash
+
+      - name: Setup flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.9"
+          cache: true
+
+      - name: Generate env.json
+        run: dart .vscode/build_env.dart
+
+      - name: Get dependencies
+        run: flutter pub get
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+
+      - name: Read version
+        id: ver
+        shell: bash
+        run: |
+          v=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/^version:\s*//' | sed -E 's/\+.*$//' | tr -d ' ')
+          echo "version=$v" >> $GITHUB_OUTPUT
+          echo "version=$v" >> $GITHUB_ENV
+
+      - name: Build Linux
+        run: flutter build linux --release --dart-define-from-file=.vscode/env.json --no-pub
+
+      - name: Package .tar.gz
+        run: tar -zcvf PiliPlus_linux_${{ env.version }}_amd64.tar.gz -C build/linux/x64/release/bundle .
+
+      - name: Package deb
+        run: |
+          mkdir "PiliPlus_linux_${version}_amd64"
+          pushd "PiliPlus_linux_${version}_amd64"
+          mkdir -p opt/PiliPlus
+          mkdir -p usr/share/applications
+          mkdir -p usr/share/icons/hicolor/512x512/apps
+          cp -r ../build/linux/x64/release/bundle/* opt/PiliPlus
+          cp -r ../assets/linux/DEBIAN .
+          cp ../assets/linux/com.example.piliplus.desktop usr/share/applications
+          cp ../assets/images/logo/logo.png usr/share/icons/hicolor/512x512/apps/piliplus.png
+          sed -i "2s/version_need_change/${version}/g" DEBIAN/control
+          SIZE_KB=$(du -s -b --apparent-size . | awk '{print int($1)}')
+          SIZE_KB=$(($SIZE_KB - $(du -s -b --apparent-size DEBIAN | awk '{print int($1)}')))
+          SIZE_KB=$(echo $SIZE_KB | awk '{print int($1/1024 + 0.999)}')
+          sed -i "9s/size_need_change/${SIZE_KB}/g" DEBIAN/control
+          md5sum opt/PiliPlus/piliplus >> DEBIAN/md5sums
+          md5sum opt/PiliPlus/lib/* >> DEBIAN/md5sums
+          md5sum opt/PiliPlus/data/icudtl.dat >> DEBIAN/md5sums
+          chmod 0644 DEBIAN/control
+          chmod 0644 DEBIAN/md5sums
+          chmod 0755 DEBIAN/postinst
+          chmod 0755 DEBIAN/postrm
+          chmod 0755 DEBIAN/prerm
+          popd
+          dpkg-deb --build --verbose --root-owner-group "PiliPlus_linux_${version}_amd64"
+        shell: bash
+        env:
+          version: ${{ steps.ver.outputs.version }}
+
+      - name: Package AppImage
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          APPDIR="PiliPlus.AppDir"
+          mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/lib" \
+                   "$APPDIR/usr/share/applications" \
+                   "$APPDIR/usr/share/icons/hicolor/512x512/apps"
+          cp -r build/linux/x64/release/bundle/* "$APPDIR/usr/bin/"
+          cp assets/linux/com.example.piliplus.desktop "$APPDIR/com.example.piliplus.desktop"
+          cp assets/linux/com.example.piliplus.desktop "$APPDIR/usr/share/applications/com.example.piliplus.desktop"
+          cp assets/images/logo/logo.png "$APPDIR/piliplus.png"
+          cp assets/images/logo/logo.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/piliplus.png"
+          cat > "$APPDIR/AppRun" <<'APPRUN_EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/piliplus" "$@"
+          APPRUN_EOF
+          chmod +x "$APPDIR/AppRun"
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage "$APPDIR" "PiliPlus_linux_${version}_amd64.AppImage"
+        shell: bash
+        env:
+          version: ${{ steps.ver.outputs.version }}
+        continue-on-error: true
+
+      - name: Release
+        if: ${{ inputs.tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          files: |
+            PiliPlus_linux_*.tar.gz
+            PiliPlus_linux_*.deb
+            PiliPlus_linux_*.AppImage
+
+      - name: Upload linux tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux-tarball-amd64
+          path: PiliPlus_linux_*.tar.gz
+
+      - name: Upload linux deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux-deb-amd64
+          path: PiliPlus_linux_*.deb
+
+      - name: Upload linux AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux-AppImage-amd64
+          path: PiliPlus_linux_*.AppImage
+        continue-on-error: true
