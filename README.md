@@ -2,6 +2,17 @@
 
 中文 | [English](README.en.md)
 
+> [!NOTE]
+> **这是 [dev4harmony/PiliPlus](https://github.com/dev4harmony/PiliPlus) 鸿蒙分支的个人修改版（PiliPlus 鸿蒙版）。**
+>
+> 在上游鸿蒙分支基础上，额外包含以下改动：
+>
+> - UP 主页把「合集和系列」单列为一级标签页（位于「投稿」之后），不再并入「投稿」
+> - 合集/系列存在时，投稿内不再重复出现合集相关子标签
+> - 设置项「用户页默认展示TAB」中，「合集」显示在「投稿」之后
+>
+> 与上游的差异仅限上述改动，其余功能与上游鸿蒙分支一致。上游更新会同步合入。
+
 此分支目前主要由[dev4harmony/flutter-dev](https://github.com/orgs/dev4harmony/teams/flutter-dev)维护
 
 - QQ 交流群：**1106472996**
