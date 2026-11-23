@@ -1180,6 +1180,9 @@ abstract final class Pref {
   static int get foldDepth =>
       _setting.get(SettingBoxKey.foldDepth, defaultValue: 0);
 
+  static bool get autoReplyThread =>
+      _setting.get(SettingBoxKey.autoReplyThread, defaultValue: false);
+
   static bool get showRefreshFAB =>
       _setting.get(SettingBoxKey.showRefreshFAB, defaultValue: true);
 

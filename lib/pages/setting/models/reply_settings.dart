@@ -102,6 +102,13 @@ List<SettingsModel> get replySettings => [
     leading: const Icon(Icons.compress),
     onTap: _showReplyDepthDialog,
   ),
+  const SwitchModel(
+    title: '自动线程化展示',
+    subtitle: '打开楼中楼时自动切换为线程化展示，无需再点按钮\n需加载全部回复后才能生效，长评论区会消耗较多流量',
+    leading: Icon(Icons.account_tree_outlined),
+    setKey: SettingBoxKey.autoReplyThread,
+    defaultVal: false,
+  ),
   SwitchModel(
     title: '评论区搜索关键词',
     subtitle: '展示评论区搜索关键词',
