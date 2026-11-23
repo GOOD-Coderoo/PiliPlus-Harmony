@@ -81,6 +81,7 @@ abstract final class SettingBoxKey {
       enableQuickFav = 'enableQuickFav',
       enableWordRe = 'enableWordRe',
       autoReplyThread = 'autoReplyThread',
+      autoReplyThreadMax = 'autoReplyThreadMax',
       enableSearchWord = 'enableSearchWord',
       enableSystemProxy = 'enableSystemProxy',
       enableAi = 'enableAi',

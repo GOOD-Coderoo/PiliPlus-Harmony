@@ -1183,6 +1183,13 @@ abstract final class Pref {
   static bool get autoReplyThread =>
       _setting.get(SettingBoxKey.autoReplyThread, defaultValue: false);
 
+  /// 「自动线程化展示」自动拉取全量回复的条数上限。
+  ///
+  /// 0 表示不限制。默认 200，与手动按钮「评论过多需确认」的克制保持一致，
+  /// 避免一进楼中楼就静默拉几十页、消耗流量或触发风控。
+  static int get autoReplyThreadMax =>
+      _setting.get(SettingBoxKey.autoReplyThreadMax, defaultValue: 200);
+
   static bool get showRefreshFAB =>
       _setting.get(SettingBoxKey.showRefreshFAB, defaultValue: true);
 

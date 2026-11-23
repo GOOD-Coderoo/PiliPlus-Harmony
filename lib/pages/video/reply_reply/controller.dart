@@ -325,6 +325,9 @@ class VideoReplyReplyController extends ReplyController
   /// 「自动线程化展示」开关。默认关闭，保持上游行为不变。
   late final autoReplyThread = Pref.autoReplyThread;
 
+  /// 「自动线程化条数上限」。0 表示不限制。
+  late final autoReplyThreadMax = Pref.autoReplyThreadMax;
+
   /// 自动模式是否已启动，保证只触发一次。
   ///
   /// 只触发一次的原因：用户手动关掉线程视图后，不应因为后续加载数据又被强行
@@ -350,10 +353,11 @@ class VideoReplyReplyController extends ReplyController
 
     // 评论过多时与手动按钮保持同样的克制：只有总量可控才自动拉全量，
     // 避免一进楼中楼就静默消耗大量流量或触发风控。
-    final count = this.count.rawValue;
-    if (count != -1) {
-      const autoThreadMaxCount = 200;
-      if (count > autoThreadMaxCount) return;
+    // 上限来自设置项「自动线程化条数上限」，0 表示不限制。
+    final maxCount = autoReplyThreadMax;
+    if (maxCount > 0) {
+      final count = this.count.rawValue;
+      if (count != -1 && count > maxCount) return;
     }
     _autoThreadKicked = true;
     nextReplyRound();
