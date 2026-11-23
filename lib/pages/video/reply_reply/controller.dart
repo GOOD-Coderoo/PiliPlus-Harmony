@@ -364,8 +364,10 @@ class VideoReplyReplyController extends ReplyController
   }
 
   void buildTree() {
-    final data = loadingState.rawValue.data!;
-    if (data.isEmpty) return;
+    // 建树依赖已成功加载的回复列表。非 Success 时 loadingState.data 会 throw，
+    // 自动流程可能在任何时刻被触发（含加载失败），故这里必须显式判空。
+    final data = loadingState.rawValue.dataOrNull;
+    if (data == null || data.isEmpty) return;
     final seen = HashSet<Int64>();
     data.retainWhere((i) => seen.add(i.id));
     showReplyTree = true;
